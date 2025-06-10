@@ -1,65 +1,99 @@
 import math
 
-def f(x, y):
-    return 2 * y * math.sin(x) + math.cos(x)**2
+r_min = 0.5
+r_max = 1.0
+theta_min = 0.0
+theta_max = math.pi / 3
+h = 0.05
+k = math.pi / 30
+n = int((r_max - r_min) / h - 1)
+m = int((theta_max - theta_min) / k - 1)
+alpha = (h / k) ** 2
 
-Exact = 0.51185
-a = 0
-b = math.pi / 4
-n = 4
-m = 4
-h = (b - a) / (2 * n)
+r = [r_min + i * h for i in range(n + 2)] # 0 ~ n + 1
+theta = [theta_min + j * k for j in range(m + 2)] # 0 ~ m + 1
+size = n * m
+A = [[0.0 for _ in range(size)] for _ in range(size)]
+F = [0.0 for _ in range(size)]
+U = [0.0 for _ in range(size)]
 
-Ans = 0
-for i in range(2 * n + 1):
-    x = a + i * h
-    g1 = math.sin(x)
-    g2 = math.cos(x)
-    k = (g2 - g1) / (2 * m)
-
-    inner = 0
-    for j in range(2 * m + 1):
-        y = g1 + j * k
+# Build A F
+for i in range(1, n + 1): # 1 ~ n
+    for j in range(1, m + 1): # 1 ~ m
+        l = i - 1 + n * (j - 1)  # 0 ~ nm - 1
+        ri = r[i]
         
-        if j == 0 or j == 2 * m:
-            wy = 1
-        elif j % 2 == 1:
-            wy = 4
-        else:
-            wy = 2
-        inner += wy * f(x, y)
+        coef1 = alpha  # T_{i,j-1}
+        coef2 = ri**2 - (h / 2) * ri  # T_{i-1,j}
+        coef3 = -2 * (alpha + ri**2)  # T_{i,j}
+        coef4 = ri**2 + (h / 2) * ri  # T_{i+1,j}
+        coef5 = alpha  # T_{i,j+1}
+        
+        # fill A
+        if j > 1:  # T_{i,j-1}
+            A[l][l - n] = coef1
+        if i > 1:  # T_{i-1,j}
+            A[l][l - 1] = coef2
+        A[l][l] = coef3  # T_{i,j}
+        if i < n:  # T_{i+1,j}
+            A[l][l + 1] = coef4
+        if j < m:  # T_{i,j+1}
+            A[l][l + n] = coef5
+        # fill F
+        F[l] = 0.0
+        if j == 1:  # T_{i,0} = 0
+            F[l] -= coef1 * 0
+        if i == 1:  # T_{0,j} = 50
+            F[l] -= coef2 * 50
+        if i == n:  # T_{n+1,j} = 100
+            F[l] -= coef4 * 100
+        if j == m:  # T_{i,m+1} = 0
+            F[l] -= coef5 * 0
 
-    inner *= k / 3
+# Gauss Elimination
+for i in range(size):
+    max_element = abs(A[i][i])
+    max_row = i
+    for k in range(i + 1, size):
+        if abs(A[k][i]) > max_element:
+            max_element = abs(A[k][i])
+            max_row = k
+    # switch line
+    A[i], A[max_row] = A[max_row], A[i]
+    F[i], F[max_row] = F[max_row], F[i]
 
-    if i == 0 or i == 2 * n:
-        wx = 1
-    elif i % 2 == 1:
-        wx = 4
-    else:
-        wx = 2
+    for k in range(i + 1, size):
+        if A[i][i] == 0:
+            raise ValueError("No Solution")
+        factor = A[k][i] / A[i][i]
+        for j in range(i, size):
+            A[k][j] -= factor * A[i][j]
+        F[k] -= factor * F[i]
 
-    Ans += wx * inner
+for i in range(size - 1, -1, -1):
+    if A[i][i] == 0:
+        raise ValueError("No Solution")
+    U[i] = F[i]
+    for j in range(i + 1, size):
+        U[i] -= A[i][j] * U[j]
+    U[i] /= A[i][i]
 
-Ans *= h / 3
-Ea = abs(Exact - Ans)
-print(f"a: {Ans:.5f}")
 
-x = [-0.775, 0.0, 0.775]
-c = [0.556, 0.889, 0.556]
+T = [[0.0 for _ in range(m + 2)] for _ in range(n + 2)]
+for i in range(1, n + 1):
+    for j in range(1, m + 1):
+        l = i - 1 + n * (j - 1)
+        T[i][j] = U[l]
+        
+# boundry condition
+for j in range(m + 2):
+    T[0][j] = 50.0
+    T[n + 1][j] = 100.0
+for i in range(n + 2):
+    T[i][0] = 0.0
+    T[i][m + 1] = 0.0
 
-Ans = 0
-for i in range(3):
-    Newx = (b + a) / 2 + x[i] * (b - a) / 2
-    sinx = math.sin(Newx)
-    cosx = math.cos(Newx)
-    G1 = (cosx - sinx) / 2
-    G2 = (cosx + sinx) / 2
-
-    for j in range(3):
-        Newy = G1 * x[j] + G2
-        Ans += c[i] * c[j] * G1 * f(Newx, Newy)
-
-Ans *= (b - a) / 2
-print(f"b: {Ans:.5f}")
-Eb = abs(Exact - Ans)
-print(f"c: Simpson: {Ea:.5f} , Gauss: {Eb:.5f}")
+print("r\t theta\t T(r,theta)")
+for j in range(m + 2):
+    for i in range(n + 2):
+        print(f"{r[i]:.3f}\t{theta[j]:.3f}\t{T[i][j]:.6f}")

@@ -1,115 +1,146 @@
-dr = 0.1
-dt = 0.5
+r_min = 0.5
+r_max = 1.0
+t_min = 0.0
+t_max = 10.0
+h = 0.1
+k = 0.5
 K = 0.1
-nr = 6
-nt = 21
-alpha_sq = 1 / (4 * K)
-lambda_val = alpha_sq * dt / (dr * dr)  # λ = 20
+n = int((r_max - r_min) / h - 1)
+t_steps = int(t_max / k) + 1
+lambda_val = 4 * K * k / (h ** 2)
 
-T = [[0.0 for _ in range(nt)] for _ in range(nr)]
+r = [r_min + i * h for i in range(n + 2)]  # [0.5, 0.6, ..., 1.0]
+t = [t_min + j * k for j in range(t_steps)]  # [0, 0.5, ..., 10.0]
 
-for i in range(nr):
-    r = 0.5 + i * dr
-    T[i][0] = 200 * (r - 0.5)
+def gauss_elimination(A, F):
+    size = len(F)
+    for i in range(size):
+        max_element = abs(A[i][i])
+        max_row = i
+        for k in range(i + 1, size):
+            if abs(A[k][i]) > max_element:
+                max_element = abs(A[k][i])
+                max_row = k
+        A[i], A[max_row] = A[max_row], A[i]
+        F[i], F[max_row] = F[max_row], F[i]
+        for k in range(i + 1, size):
+            if A[i][i] == 0:
+                raise ValueError("No Solution")
+            factor = A[k][i] / A[i][i]
+            for j in range(i, size):
+                A[k][j] -= factor * A[i][j]
+            F[k] -= factor * F[i]
     
-for j in range(nt):
-    t = j * dt
-    T[nr - 1][j] = 100 + 40 * t
- 
-def solve_tridiagonal(a, b, c, d):
-    n = len(d)
-    c_prime = [0] * (n - 1)
-    d_prime = [0] * n
-    x = [0] * n
-    
-    c_prime[0] = c[0] / b[0]
-    d_prime[0] = d[0] / b[0]
-    for i in range(1, n - 1):
-        denom = b[i] - a[i] * c_prime[i - 1]
-        c_prime[i] = c[i] / denom
-        d_prime[i] = (d[i] - a[i] * d_prime[i - 1]) / denom
-    d_prime[n - 1] = (d[n - 1] - a[n - 1] * d_prime[n - 2]) / (b[n - 1] - a[n - 1] * c_prime[n - 2])
-    
-    x[n - 1] = d_prime[n - 1]
-    for i in range(n - 2, -1, -1):
-        x[i] = d_prime[i] - c_prime[i] * x[i + 1]
-    return x
+    U = [0] * size
+    for i in range(size - 1, -1, -1):
+        if A[i][i] == 0:
+            raise ValueError("No Solution")
+        U[i] = F[i]
+        for j in range(i + 1, size):
+            U[i] -= A[i][j] * U[j]
+        U[i] /= A[i][i]
+    return U
 
-# (a) Forward-Difference Method
-T_forward = [row[:] for row in T]
-for j in range(nt - 1): # 0 ~ 19
-    for i in range(1, nr - 1):  # 1 ~ 4
-        r = 0.5 + i * dr
-        dr_term = (T_forward[i+1][j] - T_forward[i-1][j]) / (2 * dr)
-        d2r_term = (T_forward[i+1][j] - 2 * T_forward[i][j] + T_forward[i-1][j]) / (dr * dr)
-        T_forward[i][j+1] = T_forward[i][j] + dt * (1 / alpha_sq) * (d2r_term + (1 / r) * dr_term)
-    
-    T_forward[0][j+1] = T_forward[1][j+1] / 1.3
+def matrix_vector_multiply(A, v):
+    n = len(v)
+    result = [0.0] * n
+    for i in range(n):
+        for j in range(n):
+            result[i] += A[i][j] * v[j]
+    return result
 
-# (b) Backward-Difference Method
-T_backward = [row[:] for row in T]
-for j in range(1, nt):  # j = 1, 2, ..., 20
-    r = [0.5 + i * dr for i in range(nr)]
-    
-    a = [-lambda_val * (1 - dr / (2 * r[i])) for i in range(1, nr - 1)]
-    b = [1 + 2 * lambda_val for _ in range(1, nr - 1)]
-    c = [-lambda_val * (1 + dr / (2 * r[i])) for i in range(1, nr - 1)]
-    d = [T_backward[i][j - 1] for i in range(1, nr - 1)]
-    
-    d[0] += lambda_val * (1 - dr / (2 * r[1])) * T_backward[0][j]
-    d[-1] += lambda_val * (1 + dr / (2 * r[nr - 2])) * T_backward[nr - 1][j] 
-    
-    solution = solve_tridiagonal(a, b, c, d)
-    for i in range(1, nr - 1):
-        T_backward[i][j] = solution[i - 1]
-    
-    T_backward[0][j] = T_backward[1][j] / 1.3
-    
-# (c) Crank-Nicolson Algorithm
-T_cn = [row[:] for row in T]
-for j in range(nt - 1):
-    r = [0.5 + i * dr for i in range(nr)]
+def initialize_T():
+    T = [[0.0] * t_steps for _ in range(n + 2)]
+    for i in range(n + 2):
+        T[i][0] = 200 * (r[i] - 0.5)
+    for j in range(t_steps):
+        T[n + 1][j] = 100 + 40 * t[j]
+    return T
 
-    a = [-lambda_val / 2 * (1 - dr / (2 * r[i])) for i in range(1, nr - 1)]
-    b = [1 + lambda_val for _ in range(1, nr - 1)]
-    c = [-lambda_val / 2 * (1 + dr / (2 * r[i])) for i in range(1, nr - 1)]
-    d = [0.0 for _ in range(1, nr - 1)]
+def forward_difference():
+    T = initialize_T()
+    for j in range(t_steps - 1):
+        A = [[0.0] * n for _ in range(n)] # A[t][r]
+        for i in range(1, n + 1):
+            idx = i - 1
+            if i > 1:
+                A[idx][idx-1] = lambda_val * (1 - h / (2 * r[i]))
+            A[idx][idx] = -2 * lambda_val + 1
+            if i < n:
+                A[idx][idx+1] = lambda_val * (1 + h / (2 * r[i]))
+        T_j = [T[i][j] for i in range(1, n + 1)]
+        T_j_next = matrix_vector_multiply(A, T_j)
+        for i in range(1, n + 1):
+            T[i][j + 1] = T_j_next[i - 1]
+        T[0][j + 1] = T[1][j + 1] / 1.3
+    return T
 
-    for i in range(1, nr - 1):
-        r_i = 0.5 + i * dr
-        d[i - 1] = (lambda_val / 2 * (1 - dr / (2 * r_i)) * T_cn[i - 1][j] +
-                    (1 - lambda_val) * T_cn[i][j] +
-                    lambda_val / 2 * (1 + dr / (2 * r_i)) * T_cn[i + 1][j])
+def backward_difference():
+    T = initialize_T()
+    for j in range(t_steps - 1):
+        A = [[0.0] * n for _ in range(n)]
+        F = [0.0] * n
+        for i in range(1, n + 1):
+            idx = i - 1
+            if i > 1:
+                A[idx][idx-1] = -lambda_val * (1 - h / (2 * r[i]))
+            A[idx][idx] = 1 + 2 * lambda_val
+            if i < n:
+                A[idx][idx+1] = -lambda_val * (1 + h / (2 * r[i]))
+            F[idx] = T[i][j]
+        A[0][0] += lambda_val * (1 - 0.05 / r[1]) / 1.3
+        F[n-1] += lambda_val * (1 + 0.05 / r[n]) * T[n + 1][j + 1]
+        T_j_next = gauss_elimination(A, F)
+        for i in range(1, n + 1):
+            T[i][j + 1] = T_j_next[i - 1]
+        T[0][j + 1] = T[1][j + 1] / 1.3
+    return T
 
-    d[0] += lambda_val / 2 * (1 - dr / (2 * r[1])) * T_cn[0][j + 1]  # r=0.5
-    d[-1] += lambda_val / 2 * (1 + dr / (2 * r[nr - 2])) * (T_cn[nr - 1][j] + T_cn[nr - 1][j + 1])  # r=1
+def crank_nicolson():
+    T = initialize_T()
+    for j in range(t_steps - 1):
+        A = [[0.0] * n for _ in range(n)]
+        B = [[0.0] * n for _ in range(n)]
+        F = [0.0] * n
+        for i in range(1, n + 1):
+            idx = i - 1
+            coeff_minus = lambda_val / 2 * (1 - 0.05 / r[i])
+            coeff_plus = lambda_val / 2 * (1 + 0.05 / r[i])
+            if i > 1:
+                A[idx][idx-1] = -coeff_minus
+                B[idx][idx-1] = coeff_minus
+            A[idx][idx] = 1 + lambda_val
+            B[idx][idx] = 1 - lambda_val
+            if i < n:
+                A[idx][idx+1] = -coeff_plus
+                B[idx][idx+1] = coeff_plus
+        A[0][0] += (lambda_val / 2 * (1 - 0.05 / r[1])) / 1.3
+        T_j = [T[i][j] for i in range(1, n + 1)]
+        F = matrix_vector_multiply(B, T_j)
+        F[n-1] += (lambda_val / 2 * (1 + 0.05 / r[n])) * (T[n + 1][j] + T[n + 1][j + 1])
+        T_j_next = gauss_elimination(A, F)
+        for i in range(1, n + 1):
+            T[i][j + 1] = T_j_next[i - 1]
+        T[0][j + 1] = T[1][j + 1] / 1.3
+    return T
 
-    solution = solve_tridiagonal(a, b, c, d)
-    for i in range(1, nr - 1):
-        T_cn[i][j + 1] = solution[i - 1]
-        
-    T_cn[0][j + 1] = T_cn[1][j + 1] / 1.3
-    
-print("Forward-Difference Method:")
-print("r\t t\t T(x,t)")
-for j in range(nt):
-    t = j * dt
-    for i in range(nr):
-        r = 0.5 + i * dr
-        print(f"{r:.1f}\t{t:.1f}\t{T_forward[i][j]:.6f}")
-        
-print("\nBackward-Difference Method:")
+print("Forward-Difference Method")
+T = forward_difference()
 print("r\t t\t T(r,t)")
-for j in range(nt):
-    t = j * dt
-    for i in range(nr):
-        r = 0.5 + i * dr
-        print(f"{r:.1f}\t{t:.1f}\t{T_backward[i][j]:.6f}")
-        
-print("\nCrank-Nicolson Algorithm:")
+for j in range(t_steps):
+    for i in range(n + 2):
+        print(f"{r[i]:.3f}\t{t[j]:.3f}\t{T[i][j]:.6f}")
+  
+print("\nBackward-Difference Method")
+T = backward_difference()
 print("r\t t\t T(r,t)")
-for j in range(nt):
-    t = j * dt
-    for i in range(nr):
-        r = 0.5 + i * dr
-        print(f"{r:.1f}\t{t:.1f}\t{T_cn[i][j]:.6f}")
+for j in range(t_steps):
+    for i in range(n + 2):
+        print(f"{r[i]:.3f}\t{t[j]:.3f}\t{T[i][j]:.6f}")
+
+print("\nCrank-Nicolson Algorithm")
+T = crank_nicolson()
+print("r\t t\t T(r,t)")
+for j in range(t_steps):
+    for i in range(n + 2):
+        print(f"{r[i]:.3f}\t{t[j]:.3f}\t{T[i][j]:.6f}")

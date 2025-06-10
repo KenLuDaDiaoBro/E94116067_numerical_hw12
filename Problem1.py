@@ -1,80 +1,92 @@
 import math
 
-def f(x , y):
-    return x * y
+x_min = 0.0
+x_max = math.pi
+y_min = 0.0
+y_max = math.pi / 2
+h = 0.1 * math.pi
+k = 0.1 * math.pi
+n = int((x_max - x_min) / h - 1)
+m = int((y_max - y_min) / k - 1)
+alpha = (h / k) ** 2
 
-h = 0.1 * math.pi 
-k = 0.1 * math.pi 
-n = 9
-m = 4
-nx = n + 2
-ny = m + 2
+x = [x_min + i * h for i in range(n + 2)]  # 0 ~ n + 1
+y = [y_min + j * k for j in range(m + 2)]  # 0 ~ m + 1
+size = n * m
+A = [[0.0 for _ in range(size)] for _ in range(size)]
+F = [0.0 for _ in range(size)]
+U = [0.0 for _ in range(size)]
 
-u = [[0.0 for _ in range(ny)] for _ in range(nx)]
+# Build A F
+for i in range(1, n + 1):
+    for j in range(1, m + 1):
+        l = (i - 1) + n * (j - 1)
+        xi = x[i]
+        yj = y[j]
+        
+        # fill A
+        if j > 1:  # u_{i,j-1}
+            A[l][l - n] = 1.0
+        if i > 1:  # u_{i-1,j}
+            A[l][l - 1] = alpha
+        A[l][l] = -2 * alpha - 2  # u_{i,j}
+        if i < n:  # u_{i+1,j}
+            A[l][l + 1] = alpha
+        if j < m:  # u_{i,j+1}
+            A[l][l + n] = 1.0
+            
+        # fill F
+        F[l] = h * h * xi * yj
+        if j == 1:  # u_{i,0}
+            F[l] -= math.cos(xi)
+        if i == 1:  # u_{0,j}
+            F[l] -= math.cos(yj)
+        if i == n:  # u_{n+1,j}
+            F[l] -= (-math.cos(yj))
+        if j == m:  # u_{i,m+1}
+            F[l] -= 0.0
 
-for j in range(ny):
-    y = j * k
-    u[0][j] = math.cos(y) 
-    u[n + 1][j] = -math.cos(y)
-    
-for i in range(nx):
-    x = i * h
-    u[i][0] = math.cos(x)
+# Gauss Elimination
+for i in range(size):
+    max_element = abs(A[i][i])
+    max_row = i
+    for k in range(i + 1, size):
+        if abs(A[k][i]) > max_element:
+            max_element = abs(A[k][i])
+            max_row = k
+    A[i], A[max_row] = A[max_row], A[i]
+    F[i], F[max_row] = F[max_row], F[i]
+    for k in range(i + 1, size):
+        if A[i][i] == 0:
+            raise ValueError("No Solution")
+        factor = A[k][i] / A[i][i]
+        for j in range(i, size):
+            A[k][j] -= factor * A[i][j]
+        F[k] -= factor * F[i]
+
+for i in range(size - 1, -1, -1):
+    if A[i][i] == 0:
+        raise ValueError("No Solution")
+    U[i] = F[i]
+    for j in range(i + 1, size):
+        U[i] -= A[i][j] * U[j]
+    U[i] /= A[i][i]
+
+u = [[0.0 for _ in range(m + 2)] for _ in range(n + 2)]
+for i in range(1, n + 1):
+    for j in range(1, m + 1):
+        l = (i - 1) + n * (j - 1)
+        u[i][j] = U[l]
+        
+# boundry condition
+for j in range(m + 2):
+    u[0][j] = math.cos(y[j])
+    u[n + 1][j] = -math.cos(y[j])
+for i in range(n + 2):
+    u[i][0] = math.cos(x[i])
     u[i][m + 1] = 0.0
 
-N = n * m
-U = [0.0 for _ in range(N)]
-F = [0.0 for _ in range(N)]
-
-for j in range(1, m + 1):
-    for i in range(1, n + 1):
-        l = i + n * (j - 1) - 1
-        x = i * h
-        y = j * k
-        F[l] = h**2 * f(x , y)
-        
-        if i == 1:
-            F[l] -= u[0][j]
-        if i == n:
-            F[l] -= u[n + 1][j]
-        if j == 1:
-            F[l] -= u[i][0]
-        if j == m:
-            F[l] -= u[i][m + 1]
-
-max_iterations = 1000
-tolerance = 1e-6
-for iteration in range(max_iterations):
-    max_diff = 0.0
-    for j in range(1, m + 1):
-        for i in range(1, n + 1):
-            l = i + n * (j - 1) - 1
-            
-            sum_terms = 0.0
-            if i > 1:
-                sum_terms += U[l - 1]
-            if i < n:
-                sum_terms += U[l + 1]
-            if j > 1:
-                sum_terms += U[l - n]
-            if j < m:
-                sum_terms += U[l + n]
-            new_u = (F[l] - sum_terms) / -4.0  # a_{ll} = -4
-            
-            max_diff = max(max_diff, abs(new_u - U[l]))
-            U[l] = new_u
-            
-    if max_diff < tolerance:
-        break
-
-for j in range(1, m + 1):
-    for i in range(1, n + 1):
-        l = i + n * (j - 1) - 1
-        u[i][j] = U[l]
-
 print("x\t y\t u(x,y)")
-for j in range(ny):
-    for i in range(nx):
-        x = i * h
-        y = j * k
-        print(f"{x:.3f}\t{y:.3f}\t{u[i][j]:.6f}")
+for j in range(m + 2):
+    for i in range(n + 2):
+        print(f"{x[i]:.3f}\t{y[j]:.3f}\t{u[i][j]:.6f}")
