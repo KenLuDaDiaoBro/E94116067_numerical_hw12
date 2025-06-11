@@ -1,3 +1,6 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
 r_min = 0.5
 r_max = 1.0
 t_min = 0.0
@@ -125,22 +128,59 @@ def crank_nicolson():
     return T
 
 print("Forward-Difference Method")
-T = forward_difference()
+T_forward = forward_difference()
 print("r\t t\t T(r,t)")
 for j in range(t_steps):
     for i in range(n + 2):
-        print(f"{r[i]:.3f}\t{t[j]:.3f}\t{T[i][j]:.6f}")
+        print(f"{r[i]:.3f}\t{t[j]:.3f}\t{T_forward[i][j]:.6f}")
   
 print("\nBackward-Difference Method")
-T = backward_difference()
+T_backward = backward_difference()
 print("r\t t\t T(r,t)")
 for j in range(t_steps):
     for i in range(n + 2):
-        print(f"{r[i]:.3f}\t{t[j]:.3f}\t{T[i][j]:.6f}")
+        print(f"{r[i]:.3f}\t{t[j]:.3f}\t{T_backward[i][j]:.6f}")
 
 print("\nCrank-Nicolson Algorithm")
-T = crank_nicolson()
+T_crank = crank_nicolson()
 print("r\t t\t T(r,t)")
 for j in range(t_steps):
     for i in range(n + 2):
-        print(f"{r[i]:.3f}\t{t[j]:.3f}\t{T[i][j]:.6f}")
+        print(f"{r[i]:.3f}\t{t[j]:.3f}\t{T_crank[i][j]:.6f}")
+        
+R, T = np.meshgrid(r, t)
+T_forward = np.array(T_forward).T  # Shape: (t_steps, n+2)
+T_backward = np.array(T_backward).T
+T_crank = np.array(T_crank).T
+
+fig1 = plt.figure(figsize=(10, 8))
+ax1 = fig1.add_subplot(111, projection='3d')
+surf1 = ax1.plot_surface(T, R, T_forward, cmap='viridis')
+ax1.set_xlabel('t')
+ax1.set_ylabel('r')
+ax1.set_zlabel('T(r,t)')
+ax1.set_title('Forward-Difference Method')
+fig1.colorbar(surf1, label='T(r,t)')
+plt.tight_layout()
+
+fig2 = plt.figure(figsize=(10, 8))
+ax2 = fig2.add_subplot(111, projection='3d')
+surf2 = ax2.plot_surface(T, R, T_backward, cmap='viridis')
+ax2.set_xlabel('t')
+ax2.set_ylabel('r')
+ax2.set_zlabel('T(r,t)')
+ax2.set_title('Backward-Difference Method')
+fig2.colorbar(surf2, label='T(r,t)')
+plt.tight_layout()
+
+fig3 = plt.figure(figsize=(10, 8))
+ax3 = fig3.add_subplot(111, projection='3d')
+surf3 = ax3.plot_surface(T, R, T_crank, cmap='viridis')
+ax3.set_xlabel('t')
+ax3.set_ylabel('r')
+ax3.set_zlabel('T(r,t)')
+ax3.set_title('Crank-Nicolson Algorithm')
+fig3.colorbar(surf3, label='T(r,t)')
+plt.tight_layout()
+
+plt.show()

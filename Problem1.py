@@ -1,4 +1,6 @@
 import math
+import numpy as np
+import matplotlib.pyplot as plt
 
 x_min = 0.0
 x_max = math.pi
@@ -90,3 +92,17 @@ print("x\t y\t u(x,y)")
 for j in range(m + 2):
     for i in range(n + 2):
         print(f"{x[i]:.3f}\t{y[j]:.3f}\t{u[i][j]:.6f}")
+        
+X, Y = np.meshgrid(x, y)
+U = np.array(u).T
+
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection='3d')
+surf = ax.plot_surface(X, Y, U, cmap='viridis')
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('u(x,y)')
+ax.set_title('Problem 1')
+fig.colorbar(surf, label='u(x,y)')
+plt.tight_layout()
+plt.show()

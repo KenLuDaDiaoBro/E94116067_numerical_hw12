@@ -1,4 +1,6 @@
 import math
+import numpy as np
+import matplotlib.pyplot as plt
 
 x_min = 0
 x_max = 1
@@ -49,3 +51,17 @@ print("x\t t\t p(x,t)")
 for j in range(t_steps):
     for i in range(n + 2):
         print(f"{x[i]:.3f}\t{t[j]:.3f}\t{p[i][j]:.6f}")
+
+X, T = np.meshgrid(x, t)
+P = np.array(p).T
+
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection='3d')
+surf = ax.plot_surface(X, T, P, cmap='viridis')
+ax.set_xlabel('x')
+ax.set_ylabel('t')
+ax.set_zlabel('p(x,t)')
+ax.set_title('Problem 4')
+fig.colorbar(surf, label='p(x,t)')
+plt.tight_layout()
+plt.show()

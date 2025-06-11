@@ -1,17 +1,19 @@
 import math
+import numpy as np
+import matplotlib.pyplot as plt
 
 r_min = 0.5
 r_max = 1.0
-theta_min = 0.0
-theta_max = math.pi / 3
+θ_min = 0.0
+θ_max = math.pi / 3
 h = 0.05
 k = math.pi / 30
 n = int((r_max - r_min) / h - 1)
-m = int((theta_max - theta_min) / k - 1)
+m = int((θ_max - θ_min) / k - 1)
 alpha = (h / k) ** 2
 
 r = [r_min + i * h for i in range(n + 2)] # 0 ~ n + 1
-theta = [theta_min + j * k for j in range(m + 2)] # 0 ~ m + 1
+θ = [θ_min + j * k for j in range(m + 2)] # 0 ~ m + 1
 size = n * m
 A = [[0.0 for _ in range(size)] for _ in range(size)]
 F = [0.0 for _ in range(size)]
@@ -93,7 +95,21 @@ for i in range(n + 2):
     T[i][0] = 0.0
     T[i][m + 1] = 0.0
 
-print("r\t theta\t T(r,theta)")
+print("r\t θ\t T(r,θ)")
 for j in range(m + 2):
     for i in range(n + 2):
-        print(f"{r[i]:.3f}\t{theta[j]:.3f}\t{T[i][j]:.6f}")
+        print(f"{r[i]:.3f}\t{θ[j]:.3f}\t{T[i][j]:.6f}")
+        
+R, θ = np.meshgrid(r, θ)
+T = np.array(T).T
+
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection='3d')
+surf = ax.plot_surface(R, θ, T, cmap='viridis')
+ax.set_xlabel('r')
+ax.set_ylabel('θ')
+ax.set_zlabel('T(r,θ)')
+ax.set_title('Problem 3')
+fig.colorbar(surf, label='T(r,θ)')
+plt.tight_layout()
+plt.show()
